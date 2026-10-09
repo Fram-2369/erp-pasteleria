@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Pastelería v6.5 - Supabase Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .modal-overlay { display: none; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: flex; flex-direction: column; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 min-h-screen overflow-hidden">
+
+    <!-- CONEXIÓN SUPABASE -->
+    <script>
+        const SUPABASE_URL = "https://ywhdodtitaienmwnekfs.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_j3QcjESv6blCEwQZ1Ibw5w_hAFeyfCY";
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    </script>
+
+    <!-- PANTALLA LOGIN -->
+    <div id="login-screen" class="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row">
+            <div class="md:w-5/12 bg-indigo-600 p-8 text-white flex flex-col justify-between">
+                <div>
+                    <i data-lucide="cake" class="w-12 h-12 mb-4 opacity-80"></i>
+                    <h1 class="text-3xl font-black mb-2">ERP Pastelería</h1>
+                    <p class="text-indigo-100 text-sm">Control Operativo, Recetas y Cuadraturas Reales.</p>
+                </div>
+                <p class="text-xs text-indigo-200 uppercase font-bold tracking-widest">Base de Datos en Supabase</p>
+            </div>
+            
+            <div class="md:w-7/12 p-8 bg-slate-50 flex flex-col justify-center space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 mb-2">Selecciona Perfil Operativo</h2>
+                <button onclick="login('JEFATURA', 'ALL')" class="w-full text-left bg-white border border-slate-200 hover:border-indigo-500 p-4 rounded-xl flex items-center gap-4 transition shadow-sm">
+                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-lg"><i data-lucide="shield-check" class="w-6 h-6"></i></div>
+                    <div><h3 class="font-bold text-slate-900">Jefatura / Gerencia</h3><p class="text-xs text-slate-500">Métricas globales, finanzas y recetas.</p></div>
+                </button>
+                <button onclick="login('OPERARIO', 'fabrica')" class="w-full text-left bg-white border border-slate-200 hover:border-blue-500 p-4 rounded-xl flex items-center gap-4 transition shadow-sm">
+                    <div class="p-3 bg-blue-50 text-blue-600 rounded-lg"><i data-lucide="chef-hat" class="w-6 h-6"></i></div>
+                    <div><h3 class="font-bold text-slate-900">Planta / Fábrica</h3><p class="text-xs text-slate-500">Hornear por recetas y despachar a tienda.</p></div>
+                </button>
+                <button onclick="login('OPERARIO', 'sala_ventas')" class="w-full text-left bg-white border border-slate-200 hover:border-emerald-500 p-4 rounded-xl flex items-center gap-4 transition shadow-sm">
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-lg"><i data-lucide="store" class="w-6 h-6"></i></div>
+                    <div><h3 class="font-bold text-slate-900">Sala de Ventas (Tienda)</h3><p class="text-xs text-slate-500">POS multiformato, arqueo ciego y recepción.</p></div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL -->
+    <div id="main-app" class="hidden h-screen flex flex-col">
+        <header class="bg-white border-b border-slate-200 flex-shrink-0 z-10 shadow-sm">
+            <div class="bg-slate-900 text-slate-200 py-1.5 px-4 text-xs font-medium flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="cake" class="w-4 h-4 text-indigo-400"></i>
+                    <span class="font-bold">ERP Pastelería</span>
+                    <span class="text-[10px] bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded border border-emerald-700">● Conectado a la nube</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="current-role-display" class="font-bold text-white uppercase text-[10px] bg-slate-800 px-3 py-1 rounded-full border border-slate-700"></span>
+                    <button onclick="logout()" class="text-rose-400 hover:text-rose-300 flex items-center gap-1 text-[11px]"><i data-lucide="log-out" class="w-3.5 h-3.5"></i> Salir</button>
+                </div>
+            </div>
+
+            <div class="max-w-full mx-auto px-4 h-14 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-4 h-full overflow-x-auto no-scrollbar" id="main-tabs"></div>
+                <div class="flex gap-2" id="header-actions"></div>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-hidden bg-slate-50 relative">
+            <!-- DASHBOARD -->
+            <div id="tab-dashboard" class="tab-pane w-full h-full p-4 overflow-y-auto">
+                <div id="dashboard-content" class="max-w-7xl mx-auto w-full space-y-6"></div>
+            </div>
+
+            <!-- FÁBRICA -->
+            <div id="tab-fabrica" class="tab-pane w-full h-full p-4 overflow-y-auto">
+                <div class="max-w-5xl mx-auto space-y-6">
+                    <div class="flex items-center gap-3">
+                        <div class="p-3 bg-blue-600 text-white rounded-xl shadow"><i data-lucide="chef-hat" class="w-8 h-8"></i></div>
+                        <div>
+                            <h2 class="text-2xl font-black text-slate-800">Planta de Producción</h2>
+                            <p class="text-slate-500 text-sm">El stock y las recetas se leen y descuentan directamente en Supabase.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <button onclick="openQuickProduce()" class="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 p-6 rounded-2xl flex flex-col items-center gap-2 group transition">
+                            <div class="bg-white p-4 rounded-full text-emerald-600 group-hover:scale-105 transition"><i data-lucide="package-plus" class="w-8 h-8"></i></div>
+                            <h3 class="font-bold text-emerald-900">Hornear Producto (Receta BOM)</h3>
+                            <p class="text-xs text-emerald-700">Descuenta materia prima en la base de datos</p>
+                        </button>
+                        
+                        <button onclick="openQuickTransfer()" class="bg-blue-50 hover:bg-blue-100 border border-blue-200 p-6 rounded-2xl flex flex-col items-center gap-2 group transition">
+                            <div class="bg-white p-4 rounded-full text-blue-600 group-hover:scale-105 transition"><i data-lucide="truck" class="w-8 h-8"></i></div>
+                            <h3 class="font-bold text-blue-900">Despachar a Sala de Ventas</h3>
+                            <p class="text-xs text-blue-700">Pasa stock a estado 'En Ruta'</p>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border p-5 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i data-lucide="layers" class="w-4 h-4 text-indigo-600"></i> Stock de Materias Primas</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="raw-materials-grid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POS -->
+            <div id="tab-pos-main" class="tab-pane w-full h-full p-2 sm:p-4 bg-slate-100 relative">
+                <div id="pos-lock-overlay" class="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg m-2">
+                    <div class="bg-white p-8 rounded-2xl shadow-2xl text-center max-w-md w-full">
+                        <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4"><i data-lucide="lock" class="w-8 h-8"></i></div>
+                        <h2 class="text-2xl font-black text-slate-800 mb-2">Caja Cerrada</h2>
+                        <p class="text-slate-500 mb-6 text-sm">Debes declarar el efectivo inicial para habilitar la caja.</p>
+                        <button onclick="openShiftModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow flex items-center justify-center gap-2">
+                            <i data-lucide="unlock"></i> Abrir Turno
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4 h-full">
+                    <div class="w-full md:w-2/3 lg:w-3/4 flex flex-col gap-3">
+                        <div class="bg-white p-3 rounded-xl border">
+                            <input type="text" id="pos-main-barcode" onkeyup="renderPosGrid(this.value)" placeholder="Filtrar producto..." class="w-full p-2 border rounded-lg text-sm">
+                        </div>
+                        <div class="flex-1 overflow-y-auto pr-1">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pb-16" id="pos-main-grid"></div>
+                        </div>
+                    </div>
+
+                    <div class="w-full md:w-1/3 lg:w-1/4 bg-white rounded-xl border flex flex-col h-full overflow-hidden">
+                        <div class="bg-slate-900 text-white p-3 flex justify-between items-center">
+                            <h3 class="font-bold text-sm">Ticket de Venta</h3>
+                            <button onclick="clearPosCart()" class="text-rose-400 text-xs font-bold"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50" id="pos-main-cart-list"></div>
+                        <div class="p-4 bg-white border-t space-y-3">
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" onclick="setPaymentMethod('EFECTIVO')" id="btn-pm-cash" class="py-2 border-2 border-emerald-600 bg-emerald-50 text-emerald-800 font-bold rounded-lg text-xs">Efectivo</button>
+                                <button type="button" onclick="setPaymentMethod('TARJETA')" id="btn-pm-card" class="py-2 border border-slate-300 text-slate-600 font-bold rounded-lg text-xs">Tarjeta</button>
+                            </div>
+                            <div class="flex justify-between items-end">
+                                <span class="text-xs uppercase font-bold text-slate-500">Total</span>
+                                <span class="text-3xl font-black text-slate-900" id="pos-main-total">$0</span>
+                            </div>
+                            <button onclick="confirmPosMainSale()" id="pos-btn-checkout" disabled class="w-full bg-emerald-600 disabled:bg-slate-300 text-white font-black py-3.5 rounded-xl shadow">COBRAR</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INVENTARIO -->
+            <div id="tab-inventory" class="tab-pane w-full h-full p-4 overflow-y-auto">
+                <div class="max-w-7xl mx-auto bg-white rounded-xl border overflow-hidden">
+                    <div class="p-4 border-b font-bold">Inventario de Productos</div>
+                    <table class="min-w-full divide-y text-left text-sm">
+                        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                            <tr><th class="px-6 py-3">SKU</th><th class="px-6 py-3">Nombre</th><th class="px-6 py-3 text-right">Planta</th><th class="px-6 py-3 text-right">Tienda</th><th class="px-6 py-3 text-right">Total</th></tr>
+                        </thead>
+                        <tbody id="inventory-tbody" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TRASPASOS -->
+            <div id="tab-transfers" class="tab-pane w-full h-full p-4 overflow-y-auto">
+                <div class="max-w-5xl mx-auto bg-white rounded-xl border overflow-hidden">
+                    <div class="p-4 border-b font-bold">Despachos Pendientes por Recibir</div>
+                    <table class="min-w-full divide-y text-sm">
+                        <thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="px-6 py-3 text-left">Producto</th><th class="px-6 py-3 text-right">Cantidad</th><th class="px-6 py-3 text-right">Acción</th></tr></thead>
+                        <tbody id="transfers-in-tbody" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALES -->
+    <div id="modal-quick-produce" class="modal-overlay fixed inset-0 z-50 items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold mb-3 text-emerald-600">Hornear Producto (Receta BOM)</h3>
+            <form onsubmit="submitQuickProduce(event)">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Producto</label>
+                <select id="qp-prod" class="w-full mb-3 p-2.5 border rounded-lg text-sm bg-slate-50"></select>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cantidad a Hornear</label>
+                <input required type="number" id="qp-qty" min="1" value="1" class="w-full mb-4 p-3 border rounded-xl text-center text-2xl font-black">
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeModal('modal-quick-produce')" class="w-1/3 py-2 bg-slate-100 rounded-lg font-bold">Cancelar</button>
+                    <button type="submit" class="w-2/3 py-2 bg-emerald-600 text-white font-bold rounded-lg shadow">Confirmar y Descontar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-quick-transfer" class="modal-overlay fixed inset-0 z-50 items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6">
+            <h3 class="text-lg font-bold mb-3 text-blue-600">Despacho a Tienda</h3>
+            <form onsubmit="submitQuickTransfer(event)">
+                <select id="qt-prod" class="w-full mb-3 p-2 border rounded-lg text-sm"></select>
+                <input required type="number" id="qt-qty" min="1" placeholder="Cantidad" class="w-full mb-4 p-3 border rounded-xl text-center text-2xl font-black">
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeModal('modal-quick-transfer')" class="w-1/3 py-2 bg-slate-100 rounded-lg font-bold">Cancelar</button>
+                    <button type="submit" class="w-2/3 py-2 bg-blue-600 text-white font-bold rounded-lg shadow">Despachar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-shift" class="modal-overlay fixed inset-0 z-50 items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold mb-3 text-indigo-600" id="shift-title">Gestión de Turno</h3>
+            <div id="shift-content"></div>
+        </div>
+    </div>
+
+    <!-- LOGICA JS -->
+    <script>
+        let appState = {
+            currentUser: null,
+            activeTab: 'dashboard',
+            activeShift: null,
+            paymentMethod: 'EFECTIVO',
+            posCart: [],
+            products: [],
+            materials: [],
+            transfers: [],
+            sales: []
+        };
+
+        const formatMoney = (val) => '$' + Number(val || 0).toLocaleString('es-CL');
+
+        async function syncData() {
+            const { data: p } = await sb.from('productos').select('*');
+            const { data: m } = await sb.from('materias_primas').select('*');
+            const { data: t } = await sb.from('traspasos').select('*');
+            const { data: v } = await sb.from('ventas').select('*');
+            if (p) appState.products = p;
+            if (m) appState.materials = m;
+            if (t) appState.transfers = t;
+            if (v) appState.sales = v;
+            updateUI();
+        }
+
+        function login(role, location) {
+            appState.currentUser = { role, location };
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            appState.activeTab = role === 'JEFATURA' ? 'dashboard' : (location === 'fabrica' ? 'fabrica' : 'pos-main');
+            syncData();
+        }
+
+        function logout() {
+            if (appState.activeShift) return alert("Cierra la caja antes de salir.");
+            appState.currentUser = null;
+            document.getElementById('main-app').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+
+        function setActiveTab(tab) {
+            appState.activeTab = tab;
+            updateUI();
+        }
+
+        function updateUI() {
+            if (!appState.currentUser) return;
+            const { role, location: loc } = appState.currentUser;
+            document.getElementById('current-role-display').textContent = role === 'JEFATURA' ? 'Gerencia' : (loc === 'fabrica' ? 'Operario Fábrica' : 'Cajero Tienda');
+
+            let tabsHtml = '';
+            if (role === 'JEFATURA') {
+                tabsHtml = `
+                    <button onclick="setActiveTab('dashboard')" class="tab-btn pb-3 font-bold text-sm ${appState.activeTab==='dashboard'?'border-b-2 border-indigo-600 text-indigo-600':''}">Dashboard</button>
+                    <button onclick="setActiveTab('inventory')" class="tab-btn pb-3 font-bold text-sm ${appState.activeTab==='inventory'?'border-b-2 border-indigo-600 text-indigo-600':''}">Inventario Global</button>
+                `;
+            } else if (loc === 'fabrica') {
+                tabsHtml = `
+                    <button onclick="setActiveTab('fabrica')" class="tab-btn pb-3 font-bold text-sm ${appState.activeTab==='fabrica'?'border-b-2 border-indigo-600 text-indigo-600':''}">Panel Planta</button>
+                    <button onclick="setActiveTab('inventory')" class="tab-btn pb-3 font-bold text-sm ${appState.activeTab==='inventory'?'border-b-2 border-indigo-600 text-indigo-600':''}">Inventario</button>
+                `;
+            } else {
+                tabsHtml = `
+                    <button onclick="setActiveTab('pos-main')" class="tab-btn pb-3 font-bold text-sm ${appState.activeTab==='pos-main'?'border-b-2 border-indigo-600 text-indigo-600':''}">POS Caja</button>
+                    <button onclick="setActiveTab('transfers')" class="tab-btn pb-3 font-bold text-sm ${appState.activeTab==='transfers'?'border-b-2 border-indigo-600 text-indigo-600':''}">Recepción Despachos</button>
+                `;
+            }
+            document.getElementById('main-tabs').innerHTML = tabsHtml;
+
+            if (loc === 'sala_ventas') {
+                document.getElementById('header-actions').innerHTML = appState.activeShift
+                    ? `<button onclick="openShiftModal()" class="bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Cuadre Caja</button>`
+                    : `<button onclick="openShiftModal()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Abrir Turno</button>`;
+            } else {
+                document.getElementById('header-actions').innerHTML = '';
+            }
+
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+            const p = document.getElementById(`tab-${appState.activeTab}`);
+            if (p) p.classList.add('active');
+
+            if (appState.activeTab === 'dashboard') renderDashboard();
+            if (appState.activeTab === 'fabrica') renderFabrica();
+            if (appState.activeTab === 'pos-main') renderPos();
+            if (appState.activeTab === 'inventory') renderInventory();
+            if (appState.activeTab === 'transfers') renderTransfers();
+
+            lucide.createIcons();
+        }
+
+        function renderDashboard() {
+            let totalVal = 0;
+            appState.products.forEach(p => { totalVal += (p.stock_fabrica + p.stock_tienda) * p.price; });
+            const totalSales = appState.sales.reduce((a, b) => a + Number(b.total), 0);
+
+            document.getElementById('dashboard-content').innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-900 rounded-2xl p-6 text-white shadow"><p class="text-xs text-slate-400 uppercase font-bold mb-1">Inventario Valorizado Total</p><h2 class="text-3xl font-black">${formatMoney(totalVal)}</h2></div>
+                    <div class="bg-emerald-600 rounded-2xl p-6 text-white shadow"><p class="text-xs text-emerald-100 uppercase font-bold mb-1">Ventas Acumuladas</p><h2 class="text-3xl font-black">${formatMoney(totalSales)}</h2></div>
+                </div>
+            `;
+        }
+
+        function renderFabrica() {
+            document.getElementById('raw-materials-grid').innerHTML = appState.materials.map(m => `
+                <div class="p-3 bg-slate-50 border rounded-xl">
+                    <p class="text-xs text-slate-500 uppercase font-bold">${m.name}</p>
+                    <p class="text-xl font-black text-slate-800">${Number(m.stock).toFixed(2)} <span class="text-xs font-normal">${m.unit}</span></p>
+                </div>
+            `).join('');
+        }
+
+        function openQuickProduce() {
+            document.getElementById('qp-prod').innerHTML = appState.products.map(p => `<option value="${p.id}">${p.name} (Fab: ${p.stock_fabrica})</option>`).join('');
+            openModal('modal-quick-produce');
+        }
+
+        async function submitQuickProduce(e) {
+            e.preventDefault();
+            const pId = document.getElementById('qp-prod').value;
+            const qty = Number(document.getElementById('qp-qty').value);
+            const p = appState.products.find(x => x.id === pId);
+
+            for (const [matId, amount] of Object.entries(p.recipe)) {
+                const cur = appState.materials.find(m => m.id === matId);
+                const nextStock = Number(cur.stock) - (amount * qty);
+                await sb.from('materias_primas').update({ stock: nextStock }).eq('id', matId);
+            }
+
+            await sb.from('productos').update({ stock_fabrica: p.stock_fabrica + qty }).eq('id', p.id);
+
+            closeModal('modal-quick-produce');
+            await syncData();
+            alert(`Producción guardada en Supabase (+${qty} ${p.name}).`);
+        }
+
+        function openQuickTransfer() {
+            document.getElementById('qt-prod').innerHTML = appState.products.map(p => `<option value="${p.id}">${p.name} (Disp: ${p.stock_fabrica})</option>`).join('');
+            openModal('modal-quick-transfer');
+        }
+
+        async function submitQuickTransfer(e) {
+            e.preventDefault();
+            const pId = document.getElementById('qt-prod').value;
+            const qty = Number(document.getElementById('qt-qty').value);
+            const p = appState.products.find(x => x.id === pId);
+
+            if (p.stock_fabrica < qty) return alert("Stock insuficiente en planta.");
+
+            await sb.from('productos').update({ stock_fabrica: p.stock_fabrica - qty }).eq('id', p.id);
+            await sb.from('traspasos').insert({
+                id: 'TR-' + Date.now().toString().slice(-5),
+                product_id: p.id,
+                product_name: p.name,
+                qty,
+                status: 'EN_RUTA'
+            });
+
+            closeModal('modal-quick-transfer');
+            await syncData();
+            alert("Despacho enviado a Tienda.");
+        }
+
+        function renderPos() {
+            const overlay = document.getElementById('pos-lock-overlay');
+            if (!appState.activeShift) overlay.classList.remove('hidden');
+            else overlay.classList.add('hidden');
+            renderPosGrid('');
+            renderPosCart();
+        }
+
+        function renderPosGrid(term = '') {
+            const f = appState.products.filter(p => p.name.toUpperCase().includes(term.toUpperCase()));
+            document.getElementById('pos-main-grid').innerHTML = f.map(p => {
+                const stock = p.stock_tienda;
+                return `
+                    <div onclick="${stock > 0 && appState.activeShift ? `addToPosCart('${p.id}')`:''}" class="bg-white p-3 rounded-xl border ${stock > 0 ? 'cursor-pointer hover:border-emerald-500' : 'opacity-40'}">
+                        <p class="font-bold text-xs">${p.name}</p>
+                        <p class="text-xs text-emerald-600 font-black mt-2">${formatMoney(p.price)}</p>
+                        <p class="text-[10px] text-slate-400 font-bold">${stock} disp</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addToPosCart(id) {
+            const p = appState.products.find(x => x.id === id);
+            const inCart = appState.posCart.find(x => x.id === id);
+            if (inCart) {
+                if (inCart.qty < p.stock_tienda) inCart.qty++;
+            } else {
+                appState.posCart.push({ id, name: p.name, price: p.price, qty: 1 });
+            }
+            renderPosCart();
+        }
+
+        function renderPosCart() {
+            let total = 0;
+            document.getElementById('pos-main-cart-list').innerHTML = appState.posCart.map(i => {
+                total += i.qty * i.price;
+                return `<div class="bg-white p-2 border rounded flex justify-between text-xs font-bold"><span>${i.name} x${i.qty}</span><span>${formatMoney(i.qty * i.price)}</span></div>`;
+            }).join('');
+            document.getElementById('pos-main-total').textContent = formatMoney(total);
+            document.getElementById('pos-btn-checkout').disabled = appState.posCart.length === 0;
+        }
+
+        function clearPosCart() {
+            appState.posCart = [];
+            renderPosCart();
+        }
+
+        function setPaymentMethod(m) {
+            appState.paymentMethod = m;
+            document.getElementById('btn-pm-cash').className = m === 'EFECTIVO' ? 'py-2 border-2 border-emerald-600 bg-emerald-50 text-emerald-800 font-bold rounded-lg text-xs' : 'py-2 border text-slate-600 rounded-lg text-xs';
+            document.getElementById('btn-pm-card').className = m === 'TARJETA' ? 'py-2 border-2 border-indigo-600 bg-indigo-50 text-indigo-800 font-bold rounded-lg text-xs' : 'py-2 border text-slate-600 rounded-lg text-xs';
+        }
+
+        async function confirmPosMainSale() {
+            let total = 0;
+            for (const item of appState.posCart) {
+                total += item.qty * item.price;
+                const p = appState.products.find(x => x.id === item.id);
+                await sb.from('productos').update({ stock_tienda: p.stock_tienda - item.qty }).eq('id', p.id);
+            }
+
+            await sb.from('ventas').insert({
+                id: 'TK-' + Date.now().toString().slice(-5),
+                shift_id: appState.activeShift.id,
+                total,
+                method: appState.paymentMethod,
+                items: appState.posCart
+            });
+
+            clearPosCart();
+            await syncData();
+        }
+
+        function openShiftModal() {
+            const c = document.getElementById('shift-content');
+            if (!appState.activeShift) {
+                document.getElementById('shift-title').textContent = "Apertura de Caja";
+                c.innerHTML = `
+                    <form onsubmit="startShift(event)" class="space-y-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase">Fondo Inicial ($)</label>
+                        <input required type="number" id="sh-cash" class="w-full p-3 border rounded-xl text-center text-2xl font-black">
+                        <button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl">Iniciar Turno</button>
+                    </form>
+                `;
+            } else {
+                const shiftSales = appState.sales.filter(s => s.shift_id === appState.activeShift.id);
+                const cashSales = shiftSales.filter(s => s.method === 'EFECTIVO').reduce((a, b) => a + Number(b.total), 0);
+                const cardSales = shiftSales.filter(s => s.method === 'TARJETA').reduce((a, b) => a + Number(b.total), 0);
+                const expected = Number(appState.activeShift.baseCash) + cashSales;
+
+                document.getElementById('shift-title').textContent = "Arqueo Ciego y Cierre";
+                c.innerHTML = `
+                    <div class="space-y-3 text-xs mb-4">
+                        <div class="flex justify-between"><span>Ventas Efectivo:</span><b>${formatMoney(cashSales)}</b></div>
+                        <div class="flex justify-between"><span>Ventas Tarjeta:</span><b>${formatMoney(cardSales)}</b></div>
+                        <div class="flex justify-between border-t pt-1 font-bold text-sm"><span>Efectivo Esperado:</span><span>${formatMoney(expected)}</span></div>
+                    </div>
+                    <form onsubmit="closeShiftF(event, ${expected})" class="space-y-3">
+                        <label class="block text-xs font-bold text-slate-500 uppercase">Efectivo Físico Contado</label>
+                        <input required type="number" id="sh-counted" class="w-full p-3 border rounded-xl text-center text-2xl font-black">
+                        <button type="submit" class="w-full bg-amber-500 text-white font-bold py-3 rounded-xl">Cerrar y Cuadrar</button>
+                    </form>
+                `;
+            }
+            openModal('modal-shift');
+        }
+
+        async function startShift(e) {
+            e.preventDefault();
+            const baseCash = Number(document.getElementById('sh-cash').value);
+            const shiftId = 'SH-' + Date.now().toString().slice(-4);
+            appState.activeShift = { id: shiftId, baseCash };
+            await sb.from('turnos').insert({ id: shiftId, base_cash: baseCash });
+            closeModal('modal-shift');
+            updateUI();
+        }
+
+        async function closeShiftF(e, expected) {
+            e.preventDefault();
+            const counted = Number(document.getElementById('sh-counted').value);
+            const diff = counted - expected;
+            await sb.from('turnos').update({ closed_at: new Date().toISOString(), counted_cash: counted, expected_cash: expected, diff }).eq('id', appState.activeShift.id);
+            appState.activeShift = null;
+            closeModal('modal-shift');
+            await syncData();
+            alert(`Caja cerrada. Diferencia de efectivo: ${formatMoney(diff)}`);
+        }
+
+        function renderInventory() {
+            document.getElementById('inventory-tbody').innerHTML = appState.products.map(p => `
+                <tr>
+                    <td class="px-6 py-4 font-mono font-bold">${p.sku}</td>
+                    <td class="px-6 py-4">${p.name}</td>
+                    <td class="px-6 py-4 text-right font-bold">${p.stock_fabrica}</td>
+                    <td class="px-6 py-4 text-right font-bold">${p.stock_tienda}</td>
+                    <td class="px-6 py-4 text-right font-black">${p.stock_fabrica + p.stock_tienda}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderTransfers() {
+            const pending = appState.transfers.filter(t => t.status === 'EN_RUTA');
+            document.getElementById('transfers-in-tbody').innerHTML = pending.map(t => `
+                <tr>
+                    <td class="px-6 py-4 font-bold">${t.product_name}</td>
+                    <td class="px-6 py-4 text-right font-black">${t.qty}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="confirmReceive('${t.id}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold">Aceptar en Tienda</button>
+                    </td>
+                </tr>
+            `).join('') || `<tr><td colspan="3" class="p-4 text-center text-slate-400">Sin despachos pendientes.</td></tr>`;
+        }
+
+        async function confirmReceive(transId) {
+            const t = appState.transfers.find(x => x.id === transId);
+            const p = appState.products.find(x => x.id === t.product_id);
+            await sb.from('productos').update({ stock_tienda: p.stock_tienda + t.qty }).eq('id', p.id);
+            await sb.from('traspasos').update({ status: 'RECIBIDO' }).eq('id', transId);
+            await syncData();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    </script>
+</body>
+</html>
